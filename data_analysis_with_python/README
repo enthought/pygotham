@@ -1,0 +1,15 @@
+Required software -
+a) enaml
+b) PySide
+c) scikits learn
+d) Enable
+e) Chaco
+
+
+To run apps shown in presentation please run the following commands on your OS shell (These arent python commands).
+
+cd run
+python Code/station_map.py
+python Code/gsod_final.py
+python Code/scatter_matrix.py
+python Code/ml_app.py

@@ -1,0 +1,110 @@
+from ml_data import (AbstractSeries, WEATHER_FIELDS, 
+    WeatherStore, DataSeries)
+from ml import LEARNING_METHODS
+from traits.api import (HasTraits, on_trait_change, 
+    List, Int, Enum, Instance, Str, Trait, Any)
+from chaco.api import Base2DPlot
+from ml_chaco import gen_line_plot
+
+
+class MLViewModel(HasTraits):
+    # Plot displayed by UI
+    plot = Any
+
+    # Weather field under study
+    field = Enum(WEATHER_FIELDS)
+
+    # Source of the underlying weather data
+    wstore = Instance(WeatherStore)
+
+    # Learn from values of weather field
+    # of this city
+    city_one = Str
+
+    # Use learnt model to predict values of
+    # weather field for this city
+    city_two = Str
+
+    # Use this learning method as the technique
+    # for learning from weather data
+    learning_method = Enum(LEARNING_METHODS)
+
+    def __init__(self, wstore, predictor, field='TEMP', 
+        learning_method='svr', city_one='nyc', city_two='nyc'):
+        HasTraits.__init__(self)
+        self.wstore = wstore
+        self.field = field
+        self.predictor = predictor
+        self.learning_method = learning_method
+        self.city_one = city_one
+        self.city_two = city_two
+
+    @on_trait_change('city_one, city_two, field, learning_method')
+    def update(self):
+        """ Any time selected cities, field being studied or the
+        learning method is changed, this method is called and it
+        relearns the model and updates the plot shown on screen
+
+        """
+        if len(self.city_one) > 0 and len(self.city_two) > 0:
+            if self.city_one == self.city_two:
+                pred, y = self.predictor.test_learning(self.learning_method,
+                    self.city_one, self.field)
+            else:
+                pred, y = self.predictor.cross_learn(self.learning_method,
+                    self.city_one, self.city_two, self.field)
+            self.plot = gen_line_plot(pred, y, self.field)
+
+enamldef LeftPane(Container):
+    attr model
+    attr wstore
+
+    GroupBox:
+        Label:
+            text = 'Weather Field:'
+        ComboBox:
+            items = WEATHER_FIELDS
+            value = items[0]
+            value >> model.field
+
+    GroupBox:
+        Label:
+            text = 'Learning Method:'
+        ComboBox:
+            items = LEARNING_METHODS
+            value = 'svr'
+            value >> model.learning_method
+
+    GroupBox:
+        Label:
+            text = 'City #1:'
+        ComboBox:
+            items = wstore.cities()
+            value = 'newark'
+            value >> model.city_one
+
+    GroupBox:
+        Label:
+            text = 'City #2:'
+        ComboBox:
+            items = wstore.cities()
+            value = 'nyc'
+            value >> model.city_two
+
+
+enamldef MLView(MainWindow):
+    id: ml_view
+    attr model
+    attr wstore
+    initial_size = (1600, 800)
+    Container:
+        constraints = [hbox(vbox(left_pane, spacer), right_pane)]
+        LeftPane:
+            id: left_pane
+            model << ml_view.model
+            wstore << ml_view.wstore
+        Container:
+            id: right_pane
+            Include:
+                components = []
+                components << [] if model.plot is None else [EnableCanvas(component=model.plot)]
